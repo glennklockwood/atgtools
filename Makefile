@@ -1,4 +1,4 @@
-BINARIES=drop_file_from_page_cache is_file_in_page_cache
+BINARIES=drop_file_from_page_cache is_file_in_page_cache mmap-test
 
 all: $(BINARIES)
 
