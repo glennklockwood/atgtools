@@ -13,33 +13,43 @@
 
 #include <fcntl.h>
 
-#ifndef RANDOM_OFFSET
-    #define RANDOM_OFFSET 0
-#endif
-#ifndef PAGE_STRIDE
-    #define PAGE_STRIDE 1
-#endif
+struct config_args {
+    int random;
+    int page_stride;
+    int num_pages;
+};
 
 /*
  * Prototypes
  */
 unsigned long get_cached_page_ct(void *file_mmap, long st_size);
 int drop_cached_pages( int fd );
+int get_config_args( int argc, char **argv, struct config_args *configs, char ***other_args );
 
 /*
  * Principal test
  */
-int main( int *argc, char **argv ) {
+int main( int argc, char **argv ) {
     struct stat st;
     size_t stride;
     void *values, *vptr;
     unsigned char value;
-    int fd, i;
     struct rusage ru;
+    struct config_args configs;
+    char **other_args;
+    int fd, i;
 
-    if ( !(fd = open( argv[1], O_RDWR, 0 )) ) return 1;
+    get_config_args( argc, argv, &configs, &other_args );
+
+    if ( !(fd = open( other_args[0], O_RDWR, 0 )) ) return 1;
     fstat( fd, &st );
     values = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0 );
+
+    if ( values == MAP_FAILED ) {
+        close(fd);
+        fprintf( stderr, "mmap of %s failed :(\n", other_args[0] );
+        return 1;
+    }
 
     printf( "%ld pages of the input file are currently in cache\n", 
         get_cached_page_ct( values, st.st_size ) );
@@ -50,18 +60,12 @@ int main( int *argc, char **argv ) {
     printf( "%ld pages of the input file are currently in cache\n", 
         get_cached_page_ct( values, st.st_size ) );
 
-    if ( values == MAP_FAILED ) {
-        close(fd);
-        fprintf( stderr, "mmap failed :(\n" );
-        return 1;
-    }
-
     getrusage( RUSAGE_SELF, &ru );
     printf( "%ld major, %ld minor page faults before reading values\n",
         ru.ru_majflt,
         ru.ru_minflt );
 
-    if ( RANDOM_OFFSET ) {
+    if ( configs.random ) {
         time_t t;
         srand( (unsigned)time(&t) );
         printf( "\nPage size is %ld bytes, access will be random within %ld bytes\n",
@@ -72,7 +76,7 @@ int main( int *argc, char **argv ) {
 /*      madvise( values, st.st_size, MADV_SEQUENTIAL ); */
 /*      stride = PAGE_STRIDE * page_size + 1024 + 256 + 64 + 16 + 4 + 1; // readahead works on 3.0.101-0.46 */
 /*      stride = PAGE_STRIDE * page_size + 1024 + 256 + 64 + 16 + 4 + 2; // readahead doesn't work */
-        stride = PAGE_STRIDE * page_size;
+        stride = configs.page_stride * page_size;
         printf( "\nPage size is %ld bytes, stride is %ld bytes\n", page_size, stride );
     }
 
@@ -84,10 +88,10 @@ int main( int *argc, char **argv ) {
         "minor",
         "cached pages" );
 
-    for ( vptr = values, i = 0; i < 100; i++ ) 
+    for ( vptr = values, i = 0; i < configs.num_pages ; i++ ) 
     { 
         long offset;
-        if ( ! (RANDOM_OFFSET) )
+        if ( !configs.random )
             offset = i * stride;
         else
             offset = (long)(st.st_size * rand() / RAND_MAX);
@@ -97,17 +101,18 @@ int main( int *argc, char **argv ) {
         value = *((unsigned char*)(vptr));
         getrusage( RUSAGE_SELF, &ru );
 
-/*      printf( "%5d   %#010x  %#04x %5ld %5ld %4ld\n",  */
-        printf( "%5d   %12ld  %#04x %5ld %5ld %4ld\n", 
-            i,
-            offset,
-            value,
-            ru.ru_majflt,
-            ru.ru_minflt,
-            get_cached_page_ct( values, st.st_size ) );
+        if ( configs.num_pages < 1000 || (i % 1000) == 0 ) {
+            printf( "%5d   %12ld  %#04x %5ld %5ld %4ld\n", 
+                i,
+                offset,
+                value,
+                ru.ru_majflt,
+                ru.ru_minflt,
+                get_cached_page_ct( values, st.st_size ) );
+        }
     }
 
-    printf( "%ld pages of the input file are currently in cache.\n", 
+    printf( "%ld pages of the input file are currently in cache\n", 
         get_cached_page_ct( values, st.st_size ) );
 
     if ( munmap( values, st.st_size ) != 0 )
@@ -143,4 +148,51 @@ unsigned long get_cached_page_ct(void *file_mmap, long st_size) {
 int drop_cached_pages( int fd ) {
     fdatasync(fd);
     return posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+}
+
+int get_config_args( int argc, char **argv, struct config_args *configs, char ***other_args )
+{
+    int aflag = 0;
+    int bflag = 0;
+    char *cvalue = NULL;
+    int index;
+    int c;
+
+    *other_args = NULL;
+
+    configs->random = 0;
+    configs->page_stride = 1;
+    configs->num_pages = 100;
+
+    opterr = 0;
+    while ((c = getopt(argc, argv, "rp:n:")) != -1)
+        switch (c)
+        {
+        case 'r':
+            configs->random = 1;
+            break;
+        case 'p':
+            configs->page_stride = atoi(optarg);
+            if ( configs->page_stride < 1 )
+                configs->page_stride = 1;
+            break;
+        case 'n':
+            configs->num_pages = atoi(optarg);
+            if ( configs->num_pages < 0 )
+                configs->num_pages = 1;
+            break;
+        case '?':
+            if (optopt == 'c' || optopt == 'p' )
+                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+            else if (isprint (optopt))
+                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+            else
+                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+            return 1;
+        default:
+            abort();
+    }
+
+    *other_args = &argv[optind];
+    return 0;
 }
