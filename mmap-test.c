@@ -25,6 +25,7 @@ struct config_args {
 unsigned long get_cached_page_ct(void *file_mmap, long st_size);
 int drop_cached_pages( int fd );
 int get_config_args( int argc, char **argv, struct config_args *configs, char ***other_args );
+int is_byte_paged( void *byte );
 
 /*
  * Principal test
@@ -47,7 +48,7 @@ int main( int argc, char **argv ) {
 
     if ( values == MAP_FAILED ) {
         close(fd);
-        fprintf( stderr, "mmap of %s failed :(\n", other_args[0] );
+        perror( "mmap failed" );
         return 1;
     }
 
@@ -91,24 +92,29 @@ int main( int argc, char **argv ) {
     for ( vptr = values, i = 0; i < configs.num_pages ; i++ ) 
     { 
         long offset;
+        int is_byte_paged_result;
         if ( !configs.random )
             offset = i * stride;
         else
             offset = (long)(st.st_size * rand() / RAND_MAX);
 
         vptr = values + offset;
+        is_byte_paged_result = is_byte_paged( vptr );
+
         /* following line triggers a page fault */
         value = *((unsigned char*)(vptr));
         getrusage( RUSAGE_SELF, &ru );
 
         if ( configs.num_pages < 1000 || (i % 1000) == 0 ) {
-            printf( "%5d   %12ld  %#04x %5ld %5ld %4ld\n", 
+            printf( "%5d   %12ld  %#04x %5ld %5ld %4ld %d\n", 
                 i,
                 offset,
                 value,
                 ru.ru_majflt,
                 ru.ru_minflt,
-                get_cached_page_ct( values, st.st_size ) );
+                get_cached_page_ct( values, st.st_size ),
+                is_byte_paged_result
+                );
         }
     }
 
@@ -195,4 +201,11 @@ int get_config_args( int argc, char **argv, struct config_args *configs, char **
 
     *other_args = &argv[optind];
     return 0;
+}
+
+int is_byte_paged( void *byte )
+{
+    unsigned char mc_result[2];
+    mincore( (void*)( ((long)(byte) / getpagesize()) * getpagesize()), 1, mc_result );
+    return ( mc_result[0]&1 ? 1 : 0 );
 }
