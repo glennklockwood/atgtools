@@ -28,15 +28,16 @@ int main( int argc, char **argv )
         return 1;
     }
 
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t0);
+    clock_gettime(CLOCK_MONOTONIC, &t0);
 
     /* 
      * do some work here 
      */
     for (i = 0; i < ARRAY_SIZE; i++ )
-        value = array[i*stride] * 2.0e6;
+        array[i*stride] *= 3;
+        /*value = array[i*stride] * 2.0e6;*/
 
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tf);
+    clock_gettime(CLOCK_MONOTONIC, &tf);
 
     if ( (tf.tv_nsec - t0.tv_nsec) < 0 ) {
         dt.tv_sec = tf.tv_sec - t0.tv_sec - 1;
