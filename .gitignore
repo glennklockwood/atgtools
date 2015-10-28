@@ -1,0 +1,5 @@
+# binaries produced in this repo
+drop_file_from_page_cache
+is_file_in_page_cache
+mmap-test
+timer
