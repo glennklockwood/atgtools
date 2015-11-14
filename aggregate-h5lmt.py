@@ -35,7 +35,7 @@ if _TRANSPOSE:
         aggr_read = sum(i)
         if aggr_read > max_read_bytes:
             max_read_bytes = aggr_read
-        max_read_bytes /= 5.0 # 5 seconds per time slice gets us MB/s
+    max_read_bytes /= 5.0 # 5 seconds per time slice gets us MB/s
 
     for j in range( len(f['OSTWriteGroup/OSTBulkWriteDataSet'][0]) ):
         i = f['OSTWriteGroup/OSTBulkWriteDataSet'][:,j]
@@ -43,7 +43,7 @@ if _TRANSPOSE:
         aggr_write = max(i)
         if aggr_write > max_write_bytes:
             max_write_bytes = aggr_write
-        max_writes_bytes /= 5.0 # 5 seconds per time slice gets us MB/s
+    max_writes_bytes /= 5.0 # 5 seconds per time slice gets us MB/s
 else:
     for i in f['OSTReadGroup/OSTBulkReadDataSet']:  # loop over OSTs
         read_bytes += sum(i) # sum the day's reads for this OST
