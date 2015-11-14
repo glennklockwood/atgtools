@@ -14,7 +14,7 @@ import os
 # CSeqDBVol 4858543 16899100 183 0x2aab552bb894 0
 # CSeqDBVol 4858543 16901257 184 0x2aab552bb8c4 0
 #
-_LEGIT_KEYS = [ 'CSeqDBVol', 'CSeqDBImpl' ]
+_LEGIT_KEYS = [ 'CSeqDBVol', 'CSeqDBImpl', 'BlastNaWordFinder', 'BNAWF-Loop' ]
 _PAGE_SIZE = 4096
 
 if __name__ == '__main__':
@@ -32,13 +32,15 @@ if __name__ == '__main__':
         field = line.split()
         if len(field) != 6 or field[0] not in _LEGIT_KEYS:
             continue
-        else:
+        try:
             key = field[0]
             sec = long(field[1])
             nsec = long(field[2])
             oid = int(field[3])
             addr = long(field[4], 16)
             cached = int(field[5])
+        except ValueError:
+            continue
 
         if base_sec < 0:
             base_sec = sec
@@ -46,9 +48,10 @@ if __name__ == '__main__':
             base_nsec = nsec
         if base_addr < 0:
             base_addr = addr
+            base_page = addr - ( addr % _PAGE_SIZE )
 
         rel_addr = addr - base_addr
-        page_addr = rel_addr - ( rel_addr % _PAGE_SIZE )
+        page_addr = addr - ( addr % _PAGE_SIZE ) - base_page
 
         # really filthy recast of two longs into a float
         if (nsec - base_nsec) < 0:
