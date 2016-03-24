@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include "mpi.h"
@@ -15,9 +16,11 @@
 int main ( int argc, char **argv ) {
     int my_rank, num_ranks, ret;
     uint8_t *buffer;
+    struct stat st;
+    struct timespec t0, tf, dt;
+    off_t bytes_copied = 0;
     MPI_File fh_in, fh_out;
     MPI_Status status;
-    struct stat st;
 
     MPI_Init( &argc, &argv );
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
@@ -79,16 +82,17 @@ int main ( int argc, char **argv ) {
     }
 
 #ifndef DEBUG
-    ret = MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_in );
-    if ( ret != 0 ) fprintf( stderr, "MPI_File_open of %s returned %d\n", argv[1], ret );
-    ret = MPI_File_open(MPI_COMM_WORLD, argv[2], MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out );
-    if ( ret != 0 ) fprintf( stderr, "MPI_File_open of %s returned %d\n", argv[1], ret );
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+
+    MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_in );
+    MPI_File_open(MPI_COMM_WORLD, argv[2], MPI_MODE_WRONLY|MPI_MODE_CREATE, MPI_INFO_NULL, &fh_out );
 
     buffer = malloc(XFER_SIZE);
     for ( int i = my_offset; i < my_offset + my_blocksize; i++ ) {
         MPI_File_read_at( fh_in, i*XFER_SIZE, buffer, XFER_SIZE, MPI_BYTE, &status );
         /* check status */
         MPI_File_write_at( fh_out, i*XFER_SIZE, buffer, XFER_SIZE, MPI_BYTE, &status );
+        bytes_copied += XFER_SIZE;
         /* check status again */
     }
 
@@ -100,13 +104,33 @@ int main ( int argc, char **argv ) {
         MPI_File_read_at( fh_in, totalxfers*XFER_SIZE, buffer, (st.st_size - totalxfers*XFER_SIZE), MPI_BYTE, &status );
         /* check status */
         MPI_File_write_at( fh_out, totalxfers*XFER_SIZE, buffer, (st.st_size - totalxfers*XFER_SIZE), MPI_BYTE, &status );
+        bytes_copied += (st.st_size - totalxfers*XFER_SIZE);
         /* check status again */
     }
-    free(buffer);
 
     MPI_File_close( &fh_in );
     MPI_File_close( &fh_out );
+
+    clock_gettime(CLOCK_MONOTONIC, &tf);
+
+    free(buffer);
+
+    if ( (tf.tv_nsec - t0.tv_nsec) < 0 ) {
+        dt.tv_sec = tf.tv_sec - t0.tv_sec - 1;
+        dt.tv_nsec = 1000000000 + tf.tv_nsec - t0.tv_nsec;
+    } 
+    else {
+        dt.tv_sec = tf.tv_sec - t0.tv_sec;
+        dt.tv_nsec = tf.tv_nsec - t0.tv_nsec;
+    }
+
+    printf( "Rank %4d copied %12d bytes in %f sec (%.2f MiB/sec)\n",
+        my_rank,
+        bytes_copied,
+        dt.tv_sec + dt.tv_nsec / 1e9, 
+        bytes_copied / 1024 / 1024 / (t.tv_sec + dt.tv_nsec / 1e9) );
 #endif
+
     MPI_Finalize();
     return 0;
 }
