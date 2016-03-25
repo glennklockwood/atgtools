@@ -1,5 +1,3 @@
-MPICC ?= mpicc
-
 BINARIES=drop_file_from_page_cache is_file_in_page_cache mmap-test timer mmap-vs-posix mpiio-cp
 
 all: $(BINARIES)
@@ -14,4 +12,4 @@ timer: timer.c
 	$(CC) $(CFLAGS) -o $@ $< -lrt
 
 mpiio-cp: mpiio-cp.c
-	$(MPICC) $(CFLAGS) -o $@ $< 
+	$(CC) $(CFLAGS) -o $@ $< -lrt

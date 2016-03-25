@@ -3,12 +3,19 @@
  *
  *  Glenn K. Lockwood, March 2016
  */
+
+#define _XOPEN_SOURCE 600
+#define _FILE_OFFSET_BITS 64
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <errno.h>
+#include <string.h>
 #include "mpi.h"
 
 #define XFER_SIZE 1048576
@@ -19,6 +26,7 @@ int main ( int argc, char **argv ) {
     struct stat st;
     struct timespec t0, tf, dt;
     off_t bytes_copied = 0;
+    char *f_in, *f_out;
     MPI_File fh_in, fh_out;
     MPI_Status status;
 
@@ -30,23 +38,25 @@ int main ( int argc, char **argv ) {
         MPI_Abort(MPI_COMM_WORLD, 1);
         return 1;
     }
+    f_in = argv[1];
+    f_out = argv[2];
 
-    if ( stat( argv[1], &st ) != 0 ) {
+    if ( stat( f_in, &st ) != 0 ) {
         if ( my_rank == 0 ) {
             fprintf( stderr, "Cannot determine size of source file %s: %s\n",
-                argv[1],
+                f_in,
                 strerror(errno) );
         }
         MPI_Abort(MPI_COMM_WORLD, 1);
         return 1;
     }
     else {
-        printf( "Copying %s to %s\n", argv[1], argv[2] );
+        printf( "Copying %s to %s (%ld bytes)\n", f_in, f_out, st.st_size );
     }
 
     /* each rank responsible for blocksize contiguous bytes of the file */ 
-    int totalxfers, blocksize, blockremainder, my_blocksize, my_offset;
-    totalxfers = (int)(st.st_size) / XFER_SIZE;
+    off_t totalxfers, blocksize, blockremainder, my_blocksize, my_offset;
+    totalxfers = st.st_size / XFER_SIZE;
     blocksize = totalxfers / num_ranks;
     blockremainder= totalxfers - num_ranks * blocksize;
     my_blocksize = blocksize;
@@ -57,7 +67,7 @@ int main ( int argc, char **argv ) {
     }
 
     if ( my_rank == 0 ) {
-        printf( "Total file size: %d\nTotal blocks: %d (%d bytes)\n",
+        printf( "Total file size: %ld\nTotal blocks: %d (%ld bytes)\n",
             st.st_size,
             totalxfers,
             totalxfers * XFER_SIZE );
@@ -74,7 +84,7 @@ int main ( int argc, char **argv ) {
 
     if ( my_rank == 0 ) {
         if ( st.st_size > totalxfers*XFER_SIZE ) {
-            printf( "Rank %d will copy the residual bytes %d to %d\n",
+            printf( "Rank %d will copy the residual bytes %ld to %ld\n",
                 my_rank,
                 totalxfers*XFER_SIZE,
                 totalxfers*XFER_SIZE + (st.st_size - totalxfers*XFER_SIZE - 1) );
@@ -84,8 +94,8 @@ int main ( int argc, char **argv ) {
 #ifndef DEBUG
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
-    MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_in );
-    MPI_File_open(MPI_COMM_WORLD, argv[2], MPI_MODE_WRONLY|MPI_MODE_CREATE, MPI_INFO_NULL, &fh_out );
+    MPI_File_open(MPI_COMM_WORLD, f_in, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_in );
+    MPI_File_open(MPI_COMM_WORLD, f_in, MPI_MODE_WRONLY|MPI_MODE_CREATE, MPI_INFO_NULL, &fh_out );
 
     buffer = malloc(XFER_SIZE);
     for ( int i = my_offset; i < my_offset + my_blocksize; i++ ) {
@@ -128,7 +138,7 @@ int main ( int argc, char **argv ) {
         my_rank,
         bytes_copied,
         dt.tv_sec + dt.tv_nsec / 1e9, 
-        bytes_copied / 1024 / 1024 / (t.tv_sec + dt.tv_nsec / 1e9) );
+        bytes_copied / 1024 / 1024 / (dt.tv_sec + dt.tv_nsec / 1e9) );
 #endif
 
     MPI_Finalize();
