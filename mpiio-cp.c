@@ -27,6 +27,7 @@ int main ( int argc, char **argv ) {
     struct timespec t0, tf, dt;
     off_t bytes_copied = 0;
     char *f_in, *f_out;
+    double walltime, max_walltime;
     MPI_File fh_in, fh_out;
     MPI_Status status;
 
@@ -91,6 +92,8 @@ int main ( int argc, char **argv ) {
         }
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
 #ifndef DEBUG
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
@@ -133,13 +136,24 @@ int main ( int argc, char **argv ) {
         dt.tv_sec = tf.tv_sec - t0.tv_sec;
         dt.tv_nsec = tf.tv_nsec - t0.tv_nsec;
     }
+    walltime = dt.tv_sec + dt.tv_nsec / 1e9;
 
     printf( "Rank %4d copied %12ld bytes in %f sec (%.2f MiB/sec)\n",
         my_rank,
         bytes_copied,
-        dt.tv_sec + dt.tv_nsec / 1e9, 
-        bytes_copied / 1024 / 1024 / (dt.tv_sec + dt.tv_nsec / 1e9) );
+        walltime, 
+        bytes_copied / 1024 / 1024 / walltime );
 #endif
+
+    /* implicit barrier here */
+    MPI_Reduce( &walltime, &max_walltime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD );
+
+    if ( my_rank == 0 ) {
+        printf( "Overall copied %ld bytes in %f seconds (%.2f MiB/sec)\n",
+            st.st_size,
+            max_walltime,
+            (double)st.st_size / max_walltime / 1024.0 / 1024.0 );
+    }
 
     MPI_Finalize();
     return 0;
