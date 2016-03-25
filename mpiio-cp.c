@@ -67,7 +67,7 @@ int main ( int argc, char **argv ) {
     }
 
     if ( my_rank == 0 ) {
-        printf( "Total file size: %ld\nTotal blocks: %d (%ld bytes)\n",
+        printf( "Total file size: %ld\nTotal blocks: %ld (%ld bytes)\n",
             st.st_size,
             totalxfers,
             totalxfers * XFER_SIZE );
@@ -75,7 +75,7 @@ int main ( int argc, char **argv ) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    printf( "I am rank %2d and I cover bytes %9d - %9d\n", 
+    printf( "I am rank %2d and I cover bytes %12ld - %12ld\n", 
         my_rank, 
         my_offset*XFER_SIZE, 
         (my_offset + my_blocksize)*XFER_SIZE-1 );
@@ -95,7 +95,7 @@ int main ( int argc, char **argv ) {
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
     MPI_File_open(MPI_COMM_WORLD, f_in, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_in );
-    MPI_File_open(MPI_COMM_WORLD, f_in, MPI_MODE_WRONLY|MPI_MODE_CREATE, MPI_INFO_NULL, &fh_out );
+    MPI_File_open(MPI_COMM_WORLD, f_out, MPI_MODE_WRONLY|MPI_MODE_CREATE, MPI_INFO_NULL, &fh_out );
 
     buffer = malloc(XFER_SIZE);
     for ( int i = my_offset; i < my_offset + my_blocksize; i++ ) {
@@ -134,7 +134,7 @@ int main ( int argc, char **argv ) {
         dt.tv_nsec = tf.tv_nsec - t0.tv_nsec;
     }
 
-    printf( "Rank %4d copied %12d bytes in %f sec (%.2f MiB/sec)\n",
+    printf( "Rank %4d copied %12ld bytes in %f sec (%.2f MiB/sec)\n",
         my_rank,
         bytes_copied,
         dt.tv_sec + dt.tv_nsec / 1e9, 
