@@ -1,0 +1,124 @@
+--- a/c++/src/algo/blast/core/na_ungapped.c	2015-11-23 16:41:05.000000000 -0800
++++ b/c++/src/algo/blast/core/na_ungapped.c	2015-11-23 16:38:18.000000000 -0800
+@@ -39,6 +39,12 @@
+ #include <algo/blast/core/mb_indexed_lookup.h>
+ #include <algo/blast/core/blast_util.h> /* for NCBI2NA_UNPACK_BASE macros */
+ 
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/mman.h>
++#include <time.h>
++
++
+ #include "index_ungapped.h"
+ #include "masksubj.inl"
+ 
+@@ -1653,7 +1659,53 @@
+     ASSERT(scansub);
+     ASSERT(extend);
+ 
++    {
++        unsigned char mc_result[2];
++        struct timespec t;
++        clock_gettime(CLOCK_MONOTONIC, &t);
++        int pagesize;
++        uintptr_t index_addr, index_page_addr;
++        pagesize = getpagesize();
++        index_addr = (uintptr_t)( subject->sequence );
++        index_page_addr = index_addr - ( index_addr % pagesize );
++
++        mincore( (void*)(index_page_addr), 1, mc_result );
++        printf( "BlastNaWordFinder %ld %ld %d %p %d\n", 
++            t.tv_sec,
++            t.tv_nsec,
++            subject->oid, 
++            (void*)(index_addr),
++            (mc_result[0]&1 ? 1 : 0) );
++    }
++
+     while(s_DetermineScanningOffsets(subject, word_length, lut_word_length, scan_range)) {
++        {
++            unsigned char mc_result[2];
++            struct timespec t;
++            clock_gettime(CLOCK_MONOTONIC, &t);
++            int pagesize;
++            uintptr_t index_addr, index_page_addr;
++            pagesize = getpagesize();
++            /* from blast_nascan.c, 
++             *   s = subject->sequence + (scan_range[0] / COMPRESSION_RATIO);
++             *   s[0] + ... 
++             * I also verified that this produces addresses into an mmapped file
++             */
++            index_addr = (uintptr_t)( subject->sequence + scan_range[1] / COMPRESSION_RATIO );
++            index_page_addr = index_addr - ( index_addr % pagesize );
++
++            mincore( (void*)(index_page_addr), 1, mc_result );
++            /* only print out major faults for this trap */
++            if ( !( mc_result[0]&1 ) )
++            {
++                printf( "BNAWF-Loop %ld %ld %d %p %d\n", 
++                    t.tv_sec,
++                    t.tv_nsec,
++                    subject->oid, 
++                    (void*)(index_addr),
++                    0 );
++            }
++        }
+ 
+         hitsfound = scansub(lookup_wrap, subject, offset_pairs, max_hits, &scan_range[1]);
+ 
+--- a/c++/src/objtools/blast/seqdb_reader/seqdbvol.cpp	2015-11-23 16:41:14.000000000 -0800
++++ b/c++/src/objtools/blast/seqdb_reader/seqdbvol.cpp	2015-11-23 16:38:29.000000000 -0800
+@@ -50,6 +50,9 @@
+ #include <corelib/ncbimtx.hpp>
+ 
+ #include <sstream>
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/mman.h>
+ 
+ BEGIN_NCBI_SCOPE
+ 
+@@ -1704,7 +1707,13 @@
+         // will already have preserved the region.
+         
+         bool hold = ! (keep || can_release);
+-        
++
++         /*
++        the following code:
++            if lease doesn't contain start and end, call m_Atlas.GetRegion
++            some other sthit
++            call m_Lease.GetPtr
++        */
+         *buffer = m_Seq->GetRegion(start_offset,
+                                    end_offset,
+                                    keep,
+@@ -1714,6 +1723,27 @@
+         
+         if (! (*buffer))  return -1;
+ 
++        /* determine if a page fault will happen...before it happens! */
++        {
++            unsigned char mc_result[2];
++            struct timespec t;
++            clock_gettime(CLOCK_MONOTONIC, &t);
++            int pagesize;
++            int last_index;
++            uintptr_t last_index_addr, last_index_page_addr;
++            pagesize = getpagesize();
++            last_index = end_offset - start_offset - 1;
++            last_index_addr = (uintptr_t)( &(buffer[0][last_index]) );
++            last_index_page_addr = last_index_addr - ( last_index_addr % pagesize );
++            mincore( (void*) last_index_page_addr, 1, mc_result ); 
++            printf( "CSeqDBVol %ld %ld %d %p %d\n", 
++                t.tv_sec,
++                t.tv_nsec,
++                oid, 
++                (void*)last_index_addr,
++                ( mc_result[0]&1 ? 1 : 0 ));
++        }
++
+         // If we are returning a hold on the sequence (keep), and the
+         // caller does not need the lock after this (can_release) we
+         // can let go of the lock (because the hold will prevent GC of

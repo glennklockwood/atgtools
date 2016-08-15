@@ -27,8 +27,10 @@ Tools Specific to NERSC Infrastructure
 Tools for the BLAST I/O Performance Analysis
 --------------------------------------------------------------------------------
 
-- `ncbi-blast-2.2.31-traces.patch` - 
-- `parse_instrumented_blast.py` - 
+- `ncbi-blast-2.2.31-traces.patch` - patch needed to make NCBI's blast report
+  detailed I/O telemetry
+- `parse_instrumented_blast.py` - tool to parse the output from a BLAST job
+  instrumented with the above patch
 
 License/Disclaimer
 --------------------------------------------------------------------------------
