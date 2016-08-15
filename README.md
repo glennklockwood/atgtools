@@ -1,6 +1,36 @@
 These are various tools I've created and used in my life as a computational
 scientist in NERSC's Advanced Technologies Group.  Use at your own risk.
 
+Generally Useful Tools
+--------------------------------------------------------------------------------
+
+- `mpiio-cp.c` - a tool to copy a large file in parallel using MPI-IO
+- `timer.c` - boilerplate code to perform high-resolution timing
+- `is_file_in_page_cache.c` - boilerplate code demonstrating how to check if a
+   file is in page cache
+- `drop_file_from_page_cache.c` - boilerplate code demonstrating how
+  `posix_fadvise` may be used to drop files from page cache as an unprivileged
+   user
+- `mmap-vs-posix.c` - boilerplate code demonstrating how to perform POSIX
+  file-based and mmap-based I/O
+- `mmap-test.c` - a simple tool to measure mmap I/O performance
+
+Tools Specific to NERSC Infrastructure
+--------------------------------------------------------------------------------
+
+- `parse_dvs_counters.py` - boilerplate code to parse DVS client counters
+- `aggregate-h5lmt.py` - boilerplate code to parse LMT HDF5 files
+- `missingdata-h5lmt.py` - boilerplate code to work with pyLMT's
+  `FSMissingDataSet`
+- `ior-sequence.py` - boilerplate code to prototype new IOR kernels
+
+Tools for the BLAST I/O Performance Analysis
+--------------------------------------------------------------------------------
+
+- `ncbi-blast-2.2.31-traces.patch` - 
+- `parse_instrumented_blast.py` - 
+
+License/Disclaimer
 --------------------------------------------------------------------------------
 
 This software was developed in the course of prime contract No. 
