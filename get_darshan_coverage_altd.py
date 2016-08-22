@@ -68,6 +68,11 @@ FROM ( %(all_jobs_query)s) AS a
 %(join_type)s JOIN ( %(all_altds_query)s ) AS b ON a.stepid = b.jobid
 """
 
+def query_mysql( cursor, query_str ):
+    return cursor.execute( query_str )
+#   print query_str
+#   return 0
+
 def craft_all_jobs_query( date_start, date_stop ):
     """
     Query to return a a list of all jobs in the jobs database
@@ -109,7 +114,6 @@ def craft_altd_and_jobs_count_query( date_start, date_stop, include_jobs=True, i
     else:
         raise Exception('excluding jobs and altds will return nothing')
 
-    print query_str
     return query_str
 
 def craft_altd_count_query( date_start, date_stop, include=[], exclude=[] ):
@@ -235,104 +239,104 @@ def analysis_custom_db( date_start, date_stop, cursor ):
 
         ### total jobs, total cycles
         query_str = craft_all_jobs_count_query( t0, tf )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['total jobs'] = str(rows[0][0])
-        output['total cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['total jobs'] = str(rows[0][0])
+            output['total cycles'] = str(rows[0][1])
 
         ### altd jobs, altd cycles
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=True,
                         include_altds=True,
                         include_libs=[],
                         exclude_libs=[] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['altd jobs'] = str(rows[0][0])
-        output['altd cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['altd jobs'] = str(rows[0][0])
+            output['altd cycles'] = str(rows[0][1])
 
-        ### non-altd jobs, non-altd cycles
+        ### non-altd jobs, non-altd cycles - hangs here
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=True,
                         include_altds=False,
                         include_libs=[],
                         exclude_libs=[] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['non-altd jobs'] = str(rows[0][0])
-        output['non-altd cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['non-altd jobs'] = str(rows[0][0])
+            output['non-altd cycles'] = str(rows[0][1])
 
         ### darshan mpi jobs
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=True,
                         include_altds=True,
                         include_libs=[ "darshan", "mpi" ],
                         exclude_libs=[] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['darshan mpi jobs'] = str(rows[0][0])
-        output['darshan mpi cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['darshan mpi jobs'] = str(rows[0][0])
+            output['darshan mpi cycles'] = str(rows[0][1])
 
         ### non-darshan mpi jobs
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=True,
                         include_altds=True,
                         include_libs=[ "mpi" ],
                         exclude_libs=[ "darshan" ] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['non-darshan mpi jobs'] = str(rows[0][0])
-        output['non-darshan mpi cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['non-darshan mpi jobs'] = str(rows[0][0])
+            output['non-darshan mpi cycles'] = str(rows[0][1])
 
         ### darshan non-mpi jobs (this shouldn't be possible since darshan links in mpi...)
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=True,
                         include_altds=True,
                         include_libs=[ "darshan" ],
                         exclude_libs=[ "mpi" ] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['darshan non-mpi jobs'] = str(rows[0][0])
-        output['darshan non-mpi cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['darshan non-mpi jobs'] = str(rows[0][0])
+            output['darshan non-mpi cycles'] = str(rows[0][1])
 
         ### non-darshan non-mpi jobs
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=True,
                         include_altds=True,
                         include_libs=[],
                         exclude_libs=[ "darshan", "mpi" ] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['non-darshan non-mpi jobs'] = str(rows[0][0])
-        output['non-darshan non-mpi cycles'] = str(rows[0][1])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['non-darshan non-mpi jobs'] = str(rows[0][0])
+            output['non-darshan non-mpi cycles'] = str(rows[0][1])
 
         ### Weird jobs that are in altd but not the jobs db; this shouldn't
         ### ever happen.  Can't get cycles because there's no record in the
         ### jobs database
         query_str = craft_altd_and_jobs_count_query( 
-                        date_start,
-                        date_stop,
+                        t0,
+                        tf,
                         include_jobs=False,
                         include_altds=True,
                         include_libs=[],
                         exclude_libs=[] )
-        cursor.execute( query_str )
-        rows = cursor.fetchall()
-        output['jobs in altd but not db'] = str(rows[0][0])
+        if query_mysql( cursor, query_str ) > 0:
+            rows = cursor.fetchall()
+            output['jobs in altd but not db'] = str(rows[0][0])
 
-        print ",".join( [ output[x] for x in field_names ] )
+        print ",".join( [ output.get(x,"-") for x in field_names ] )
        
         t = tf
 
