@@ -57,22 +57,25 @@ def main():
         output = messages.get(userId='me', id=message_id).execute()
         message_body = base64.b64decode( output['payload']['body']['data'] )
 
-        ### parse the body of each e-mail
+        ### parse the body of each e-mail.  assume we only care about the first
+        ### set of data ("Archive : IO Totals by HPSS Mover Host")
         for line in StringIO.StringIO( message_body ).readlines():
             if line.startswith('HPSS Report for Date'):
                 date = line.split()[4]
                 print "Analyzing report for %s" % date
-            if line.startswith('Total'):
+            elif line.startswith('Total'):
                 args = line.split()
                 data_dict[date] = {}
                 for i in range(len(args)-1):
-                    data_dict[date][LINE_FMT[i]] = args[i+1]
+                    data_dict[date][LINE_FMT[i]] = float(args[i+1])
+            elif line.startswith('HPSS ACCOUNTING:'):
+                data_dict[date]['hpss_accounting'] = float(line.split()[2])
                 break
 
     ### convert dict of data into a DataFrame
     df = pandas.DataFrame.from_dict( data=data_dict, orient='index' )
     df.index.name = 'date'
-    print df.to_csv(path_or_buf=None)
+    print df.to_csv(path_or_buf=None, columns=sorted(df.keys()))
 
 
 def get_credentials():
