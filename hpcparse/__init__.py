@@ -3,6 +3,8 @@
 Collection of Python tools to parse common forms of string output
 """
 
+import ior
+
 FS_MAP = {
     "scratch1": "edison_snx11025",
     "scratch2": "edison_snx11035",

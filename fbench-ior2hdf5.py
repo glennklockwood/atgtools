@@ -22,18 +22,12 @@ import datetime
 import tempfile
 import subprocess
 import argparse
+import StringIO
+import warnings
+import hpcparse
 
 ### template string for h5lmt file locations
 H5LMT_PATH_TEMPLATE = os.path.join( "/", "global", "project", "projectdirs", "pma", "www", "daily", "%s", "%s.h5lmt")
-
-### map mount points to h5lmt file basenames
-FS_MAP = {
-    "scratch1": "edison_snx11025",
-    "scratch2": "edison_snx11035",
-    "scratch3": "edison_snx11036",
-    "cscratch": "cori_snx11168",
-}
-FS_MAP_REV = {val: key for key, val in FS_MAP.iteritems()}
 
 ### the datasets we want to extract and save to new HDF5 files
 RELEVANT_DATASETS = [
@@ -49,30 +43,40 @@ def ior_to_hdf5_files( ior_outputs ):
     output: tuple containing
         1. list of h5lmt file names corresponding to input files
         2. subset of input that was used to generate output #1
+
+    Can handle files that contain concatenated IOR outputs.
     """
     valid_inputs = set()
     h5lmt_files = set()
-    for file in ior_outputs:
-        date_0 = None
-        date_f = None
-        fs = None
-        ### assume multiple IOR outputs can be concatenated in a single output file
-        with open(file, 'r') as fp:
+    for filename in ior_outputs:
+        stdout_str = ""
+        with open(filename, 'r') as fp:
             for line in fp:
                 if line.startswith("Run began"):
-                    date_0 = datetime.datetime.strptime(line.split(':',1)[1].strip(), "%c").date()
-                elif line.startswith('Path'):
-                    fs = line.split()[1].split(os.sep)[1]
+                    stdout_str = line
                 elif line.startswith("Run finished"):
-                    date_f = datetime.datetime.strptime(line.split(':',1)[1].strip(), "%c").date()
+                    stdout_str += line
+                    ior_data = hpcparse.ior.parse(StringIO.StringIO(stdout_str))
+                    stdout_str = ""
+
+                    ### deal with malformed outputs
+                    try:
+                        date = ior_data['start'].date()
+                        date_stop = ior_data['stop'].date()
+                        fs = ior_data['path'].strip(os.sep).split(os.sep)[0]
+                    except KeyError:
+                        warnings.warn("Malformed IOR output %s" % filename)
+                        continue
+
                     ### register the h5lmt file(s) for this run
-                    d = date_0
-                    while d <= date_f:
-                        h5input = H5LMT_PATH_TEMPLATE % (d, FS_MAP[fs])
+                    while date <= date_stop:
+                        h5input = H5LMT_PATH_TEMPLATE % (date, hpcparse.FS_MAP[fs])
                         if os.path.isfile(h5input):
                             h5lmt_files.add(h5input)
-                            valid_inputs.add(file)
-                        d += datetime.timedelta(days=1)
+                            valid_inputs.add(filename)
+                        date += datetime.timedelta(days=1)
+                elif len(stdout_str) > 0:
+                    stdout_str += line
 
     return h5lmt_files, valid_inputs
 
@@ -111,8 +115,8 @@ def suggest_name( src ):
     """
     date = src.split(os.sep)[-2]
     basename = os.path.basename(src).split('.', 2)[0]
-    if basename in FS_MAP_REV:
-        return FS_MAP_REV[basename] + "_" + date + ".hdf5"
+    if basename in hpcparse.FS_MAP_REV:
+        return hpcparse.FS_MAP_REV[basename] + "_" + date + ".hdf5"
     else:
         return basename + "_" + date + ".hdf5"
 
