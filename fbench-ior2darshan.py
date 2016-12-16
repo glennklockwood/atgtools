@@ -32,4 +32,4 @@ if __name__ == "__main__":
             matches = glob.glob( os.path.join( base_path, str(yr), str(mo), str(dy), "*id%s_*" % jobid_str ) )
             if len(matches) > 0:
                 for darshan_log in matches:
-                    print "cp darshan_log ."
+                    print "cp %s ." % darshan_log 
