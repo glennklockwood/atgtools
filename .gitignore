@@ -5,3 +5,4 @@ mmap-test
 timer
 mmap-vs-posix
 mpiio-cp
+*.pyc
