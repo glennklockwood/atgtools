@@ -4,6 +4,7 @@ Parses the stdout of one or more IOR invocations
 """
 import sys
 import datetime
+import re
 import json
 
 def un_human_readable( value_str ):
@@ -48,6 +49,7 @@ def parse( ior_output ):
     """
     data = { }
 
+    section = None
     for line in ior_output:
         if line.startswith("Run began"):
             data['start'] = datetime.datetime.strptime(line.split(':',1)[1].strip(), "%c")
@@ -73,7 +75,28 @@ def parse( ior_output ):
                     data['file_system']['approx_total_inodes'] = long(value)
                 elif fsfield.startswith('Used Inodes:'):
                     data['file_system']['approx_used_inodes_pct'] = value
-
+        elif section is None and line.strip() == "Summary:":
+            section = 'summary'
+            data['summary'] = {}
+        elif section == 'summary' and line.strip() == "":
+            section = None
+        elif section == 'summary':
+            key, val = line.split('=')
+            key = key.strip()
+            val = val.strip()
+            key = key.replace(' ', '_')
+            if key == 'clients':
+                rex_match = re.match('(\d+) \((\d+) per node', val)
+                if rex_match is not None:
+                    val = int(rex_match.group(1))
+                    data['summary']['ppn'] = int(rex_match.group(2))
+            elif key == 'repetitions':
+                val = int(val)
+            elif (key == 'xfersize'
+               or key == 'blocksize'
+               or key == 'aggregate_filesize'):
+                val = un_human_readable(val)
+            data['summary'][key] = val
     return data
 
 if __name__ == '__main__':
