@@ -90,6 +90,11 @@ def parse( ior_output ):
                 if rex_match is not None:
                     val = int(rex_match.group(1))
                     data['summary']['ppn'] = int(rex_match.group(2))
+            elif key == 'pattern':
+                rex_match = re.match('(\S+)\s+\((\d+) segments', val)
+                if rex_match is not None:
+                    val = rex_match.group(1)
+                    data['summary']['segments'] = int(rex_match.group(2))
             elif key == 'repetitions':
                 val = int(val)
             elif (key == 'xfersize'
