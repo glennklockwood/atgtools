@@ -35,6 +35,7 @@ RELEVANT_DATASETS = [
     "FSStepsGroup/FSStepsDataSet",
     "OSTReadGroup/OSTBulkReadDataSet",
     "OSTWriteGroup/OSTBulkWriteDataSet",
+    "OSSCPUGroup/OSSCPUDataSet",
 ]
 
 def ior_to_hdf5_files( ior_outputs ):
