@@ -75,12 +75,15 @@ def parse( ior_output ):
                     data['file_system']['approx_total_inodes'] = long(value)
                 elif fsfield.startswith('Used Inodes:'):
                     data['file_system']['approx_used_inodes_pct'] = value
+        ### parse the input parameter summary section
         elif section is None and line.strip() == "Summary:":
-            section = 'summary'
+            section = 'input_summary'
             data['summary'] = {}
-        elif section == 'summary' and line.strip() == "":
+        elif section == 'input_summary' and line.strip() == "":
+            ### calculate the number of nodes
+            data['summary']['nodes'] = data['summary']['clients'] / data ['summary']['ppn']
             section = None
-        elif section == 'summary':
+        elif section == 'input_summary':
             key, val = line.split('=')
             key = key.strip()
             val = val.strip()
@@ -102,6 +105,41 @@ def parse( ior_output ):
                or key == 'aggregate_filesize'):
                 val = un_human_readable(val)
             data['summary'][key] = val
+        ### run results section
+        elif section is None and line.strip() == "Summary of all tests:":
+            section = 'run_summary'
+            if 'run_summary' not in data:
+                data['run_summary'] = [ ]
+            else:
+                data['run_summary'].append({})
+        elif section == 'run_summary' and line.strip() == "":
+            section = None
+        elif section == 'run_summary' and line.startswith('read') or line.startswith('write'):
+            cols = line.split()
+            print data['run_summary'].append({
+                'operation':    cols[0],
+                'max_mibs':     float(cols[1]),
+                'min_mibs':     float(cols[2]),
+                'avg_mibs':     float(cols[3]),
+                'stdev_mibs':   float(cols[4]),
+                'mean_time':    float(cols[5]),
+                'test_num':     int(cols[6]),
+                'num_tasks':    int(cols[7]),
+                'ppn':          int(cols[8]),
+                'repetitions':  int(cols[9]),
+                'file-per-proc?': int(cols[10]),
+                'reordertasks(-C)?': int(cols[11]),
+                'reorder_off?': int(cols[12]),
+                'random(-z)?':  int(cols[13]),
+                'random_seed':  int(cols[14]),
+                'segment_ct':   int(cols[15]),
+                'block_size':   int(cols[16]),
+                'transfer_size': int(cols[17]),
+                'aggregate_size': int(cols[18]),
+                'api': cols[19],
+                'ref_num': int(cols[20])
+            })
+            
     return data
 
 if __name__ == '__main__':
