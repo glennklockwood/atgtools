@@ -78,10 +78,10 @@ def parse( ior_output ):
         ### parse the input parameter summary section
         elif section is None and line.strip() == "Summary:":
             section = 'input_summary'
-            data['summary'] = {}
+            data['input_summary'] = {}
         elif section == 'input_summary' and line.strip() == "":
             ### calculate the number of nodes
-            data['summary']['nodes'] = data['summary']['clients'] / data ['summary']['ppn']
+            data['input_summary']['nodes'] = data['input_summary']['clients'] / data ['input_summary']['ppn']
             section = None
         elif section == 'input_summary':
             key, val = line.split('=')
@@ -92,31 +92,29 @@ def parse( ior_output ):
                 rex_match = re.match('(\d+) \((\d+) per node', val)
                 if rex_match is not None:
                     val = int(rex_match.group(1))
-                    data['summary']['ppn'] = int(rex_match.group(2))
+                    data['input_summary']['ppn'] = int(rex_match.group(2))
             elif key == 'pattern':
                 rex_match = re.match('(\S+)\s+\((\d+) segments', val)
                 if rex_match is not None:
                     val = rex_match.group(1)
-                    data['summary']['segments'] = int(rex_match.group(2))
+                    data['input_summary']['segments'] = int(rex_match.group(2))
             elif key == 'repetitions':
                 val = int(val)
             elif (key == 'xfersize'
                or key == 'blocksize'
                or key == 'aggregate_filesize'):
                 val = un_human_readable(val)
-            data['summary'][key] = val
+            data['input_summary'][key] = val
         ### run results section
         elif section is None and line.strip() == "Summary of all tests:":
             section = 'run_summary'
             if 'run_summary' not in data:
                 data['run_summary'] = [ ]
-            else:
-                data['run_summary'].append({})
         elif section == 'run_summary' and line.strip() == "":
             section = None
-        elif section == 'run_summary' and line.startswith('read') or line.startswith('write'):
+        elif section == 'run_summary' and (line.startswith('read') or line.startswith('write')):
             cols = line.split()
-            print data['run_summary'].append({
+            data['run_summary'].append({
                 'operation':    cols[0],
                 'max_mibs':     float(cols[1]),
                 'min_mibs':     float(cols[2]),
