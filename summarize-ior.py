@@ -26,4 +26,4 @@ if __name__ == '__main__':
                 op_key = run_record['operation']
                 jobs_table[run_key][op_key] = run_record['avg_mibs']
 
-    print json.dumps(jobs_table, indent=4)
+    print json.dumps(jobs_table, indent=4, sort_keys=True)
