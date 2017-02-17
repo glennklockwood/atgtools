@@ -84,7 +84,7 @@ def parse( ior_output ):
             data['input_summary']['nodes'] = data['input_summary']['clients'] / data ['input_summary']['ppn']
             section = None
         elif section == 'input_summary':
-            key, val = line.split('=')
+            key, val = line.split('=', 1)
             key = key.strip()
             val = val.strip()
             key = key.replace(' ', '_')
