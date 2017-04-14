@@ -15,14 +15,19 @@ Generally Useful Tools
   file-based and mmap-based I/O
 - `mmap-test.c` - a simple tool to measure mmap I/O performance
 
+
 Tools Specific to NERSC Infrastructure
 --------------------------------------------------------------------------------
 
-- `parse_dvs_counters.py` - boilerplate code to parse DVS client counters
 - `aggregate-h5lmt.py` - boilerplate code to parse LMT HDF5 files
+- `archive_darshan.sh` - script to back up Darshan logs to HPSS.  Run using
+  `NERSC_HOST=cori ./archive_darshan.sh ~/darshanlogs/` or something similar.
+- `build-darshan.sh` - compile and cross-compile Darshan in the NERSC
+   environment
+- `ior-sequence.py` - boilerplate code to prototype new IOR kernels
 - `missingdata-h5lmt.py` - boilerplate code to work with pyLMT's
   `FSMissingDataSet`
-- `ior-sequence.py` - boilerplate code to prototype new IOR kernels
+- `parse_dvs_counters.py` - boilerplate code to parse DVS client counters
 
 Tools for the BLAST I/O Performance Analysis
 --------------------------------------------------------------------------------
