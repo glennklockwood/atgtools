@@ -46,6 +46,6 @@ do
         ### pull the trigger and make the tarfile
         echo "Found $file_ct files in $log_dir"
         # htar -Hcrc -cvf $tarfile $log_dir
-        tar -cvf $SCRATCH_DIR/$tarfile $log_dir && hsi put "$SCRATCH_DIR/$tarfile" && rm -v $SCRATCH_DIR/$tarfile
+        tar --ignore-failed-read -cvf $SCRATCH_DIR/$tarfile $log_dir && hsi put "$SCRATCH_DIR/$tarfile" : "$tarfile" && rm -v $SCRATCH_DIR/$tarfile
     done
 done
