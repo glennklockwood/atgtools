@@ -16,12 +16,18 @@ import numpy as np
 import warnings
 import hashlib
 
-ANONYMIZE_SN = True
+ANONYMIZE_SN = False
 
 def anonymize_sn( sn ):
     """
     Anonymize the serial number of each device, but preserve its enumerated id
     (0 or 1 for Intel DC P3608)
+    
+
+    Another way to do this in the files themselves is using this glorious bash one-liner:
+
+    for i in $(grep -o 'CVF[^-]*-[0-9]' * -h | sort -u);do hash="$(md5sum <<< "$i" | cut -d' ' -f1)"; hash=${hash^^}; hash=${hash:0:15}; suffix=$(cut -d'-' -f2 <<< $i); new_sn="CVF$hash-$suffix"; sed -i 's/'$i'/'$new_sn'/g' *.txt;done
+
     """
     if ANONYMIZE_SN:
         sn, devid = sn.split('-',1)
@@ -31,29 +37,14 @@ def anonymize_sn( sn ):
     else:
         return sn
 
-def load_dev_map( path ):
+def decode_nid(path):
     """
-    Load map containing serial numbers and node names.  Each line in this device
-    map file should have a format
-
-        CVF000000000000000-1 nid00000
-
-    with the device serial number, a space, and the node to which it belongs
+    Given a path to some file, somehow figure out what the nid name for that
+    node is.
     """
-    dev_map = {}
-    if path is None:
-        warnings.warn("Unable to load device map file")
-        return dev_map
-    try:
-        with open( path, 'r' ) as fp:
-            for line in fp:
-                sn, node = line.split(None, 1)
-                sn = anonymize_sn( sn )
-                dev_map[sn] = node.strip()
-    except IOError:
-        warnings.warn("Unable to load device map file")
-        pass
-    return dev_map
+    abs_path = os.path.abspath(path)
+    nid_name = os.path.dirname(abs_path).split(os.sep)[-1]
+    return nid_name
 
 def rekey_smart_buffer(smart_buffer):
     """
@@ -70,7 +61,7 @@ def rekey_smart_buffer(smart_buffer):
         data[key] = val.strip()
     return data
 
-def parse_dct_counters_file( path, dev_map=None ):
+def parse_dct_counters_file(path):
     """Read the output of a single isdct command.  Understands the output of
     the following options:
       isdct show -smart (SMART attributes)
@@ -88,16 +79,13 @@ def parse_dct_counters_file( path, dev_map=None ):
         for line in fp:
             line = line.strip()
             if device_sn is None:
-                rex_match = re.search( '(Intel SSD|SMART Attributes).*(CVF[^ ]+-\d+)', line )
+                rex_match = re.search( '(Intel SSD|SMART Attributes|SMART and Health Information).*(CVF[^ ]+-\d+)', line )
                 if rex_match is not None:
                     device_sn = anonymize_sn(rex_match.group(2))
-                    if device_sn in dev_map:
-                        data['NodeName'] = dev_map[device_sn]
-                    else:
-                        data['NodeName'] = "unknown"
+                    data['NodeName'] = decode_nid(path)
                     if rex_match.group(1) == "Intel SSD":
                         parse_mode = 0
-                    elif rex_match.group(1) == "SMART Attributes":
+                    elif rex_match.group(1) == "SMART Attributes" or rex_match.group(1) == "SMART and Health Information":
                         parse_mode = 1
                     else:
                         raise Exception("Unknown counter file format")
@@ -141,20 +129,16 @@ def find_duplicate_keys( data_list ):
 
     return duplicate_kv
 
-def parse_many_dct_counters_files( file_list, dev_map_file=None ):
+def parse_many_dct_counters_files(file_list):
     """
     Receives a list of file paths and parses all input files.  The counters
     from each file are aggregated based on the NVMe device serial number, with
     redundant counters being overwritten.
-    
-    Returns a dict of dicts containing all counters keyed by serial number.
     """
-
-    dev_map = load_dev_map(dev_map_file)
 
     all_data = {}
     for f in file_list:
-        parsed_counters = parse_dct_counters_file(f, dev_map)
+        parsed_counters = parse_dct_counters_file(f)
         if parsed_counters is None:
             warnings.warn("No valid counters found in " + f)
             continue
@@ -222,7 +206,7 @@ def counters_dict_to_numeric_dataframe( input_dict ):
     return df[numeric_keys]
 
 if __name__ == '__main__':
-    all_data = parse_many_dct_counters_files( sys.argv[1:], 'dev_map.txt' )
-    df = counters_dict_to_numeric_dataframe( all_data )
+    all_data = parse_many_dct_counters_files(sys.argv[1:])
+    df = counters_dict_to_numeric_dataframe(all_data)
     df.index.name = "DeviceID"
     print df.to_csv()
