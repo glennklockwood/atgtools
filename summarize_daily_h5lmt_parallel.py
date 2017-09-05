@@ -12,7 +12,25 @@ import datetime
 
 BYTES_TO_GIBS = 2.0**-30
 
-def summarize_h5lmt_file(h5lmt_file):
+METADATA_OPS = [ 'open', 'close', 'getattr', 'rename', 'unlink', 'rmdir', 'link' ]
+RW_ADD_KEYS = [ 'read_gibs', 'write_gibs', 'missing_pct' ]
+
+HEADER_KEYS = {
+    'date': 'Date',
+    'read_gibs': 'GiB Read',
+    'write_gibs': 'GiB Write',
+    'missing_pct': "% Missing",
+    'open': "open",
+    'close': "close",
+    'getattr': 'stat',
+    'rename': 'rename',
+    'unlink': 'unlink',
+    'rmdir': 'rmdir',
+    'link': 'link',
+}
+
+
+def summarize_h5lmt_rw(h5lmt_file):
     print "Processing", h5lmt_file
     f = h5py.File(h5lmt_file, 'r')
     timestep = f['/FSStepsGroup/FSStepsDataSet'][1] - f['/FSStepsGroup/FSStepsDataSet'][0]
@@ -21,19 +39,42 @@ def summarize_h5lmt_file(h5lmt_file):
         'date': date,
         'datetime_date': datetime.datetime.strptime(date, "%Y-%m-%d"),
         'read_gibs': f['/OSTReadGroup/OSTBulkReadDataSet'][:,:].sum() * timestep * BYTES_TO_GIBS,
+
         'write_gibs': f['/OSTWriteGroup/OSTBulkWriteDataSet'][:,:].sum() * timestep * BYTES_TO_GIBS,
         'missing_pct': float(f['/FSMissingGroup/FSMissingDataSet'][:,:].sum()) / (f['/FSMissingGroup/FSMissingDataSet'].shape[0]*f['/FSMissingGroup/FSMissingDataSet'].shape[1]),
         }
+
+def summarize_h5lmt_metadata(h5lmt_file):
+    print "Processing", h5lmt_file
+    f = h5py.File(h5lmt_file, 'r')
+    timestep = f['/FSStepsGroup/FSStepsDataSet'][1] - f['/FSStepsGroup/FSStepsDataSet'][0]
+    date = f['/FSStepsGroup/FSStepsDataSet'].attrs['day']
+    result = {
+        'date': date,
+        'datetime_date': datetime.datetime.strptime(date, "%Y-%m-%d"),
+    }
+    for op in METADATA_OPS:
+        op_index = list(f['/MDSOpsGroup/MDSOpsDataSet'].attrs['OpNames']).index(op)
+        result[op] = f['/MDSOpsGroup/MDSOpsDataSet'][op_index,:].sum() * timestep
+    return result
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='aggregate bytes in/out from h5lmt')
     parser.add_argument('file', type=str, nargs='+', help='h5lmt file(s) to process')
     parser.add_argument('-t', '--threads', type=int, default=8, help='number of threads to use')
+    parser.add_argument('-m', '--metadata', action='store_true', help='report on metadata instead of data')
     parser.add_argument('--reduce-on', type=str, default='date', help='reduce on (date|week|month)')
     args = parser.parse_args()
 
+    if args.metadata:
+        process_function = summarize_h5lmt_metadata
+        metrics = METADATA_OPS
+    else:
+        process_function = summarize_h5lmt_rw
+        metrics = RW_ADD_KEYS
+
     pool = multiprocessing.Pool(args.threads)
-    results = pool.map(summarize_h5lmt_file, args.file)
+    results = pool.map(process_function, args.file)
 
     ### results contains one record per h5lmt file; now reduce based on day,
     ### week, month, etc
@@ -46,25 +87,19 @@ if __name__ == "__main__":
         else:
             key = result['datetime_date'].strftime("%Y-%m-%d")
         if key not in reduced_results:
-            reduced_results[key] = {
-                'read_gibs': 0.0,
-                'write_gibs': 0.0,
-                'missing_pct': 0.0,
-                'n': 0,
-            }
-        reduced_results[key]['read_gibs'] += result['read_gibs']
-        reduced_results[key]['write_gibs'] += result['write_gibs']
-        reduced_results[key]['missing_pct'] += result['missing_pct']
+            reduced_results[key] = { 'n': 0, }
+            for metric in metrics:
+                reduced_results[key][metric] = 0.0
         reduced_results[key]['n'] += 1
         reduced_results[key]['date'] = str(key)
+        for metric in metrics:
+            reduced_results[key][metric] += result[metric]
 
     ### Print column header
-    print "%(date)10s %(read_gibs)9s %(write_gibs)9s %(missing_pct)s" % {
-        'date': 'Date',
-        'read_gibs': 'GiB Read',
-        'write_gibs': 'GiB Write',
-        'missing_pct': "% Missing",
-    }
+    header_str = "%(date)10s"
+    for metric in metrics:
+        header_str += " %%(%s)12s" % metric
+    print header_str % HEADER_KEYS
 
     ### Print data
     missing_pct_bogus = False
@@ -72,10 +107,13 @@ if __name__ == "__main__":
         result = reduced_results[key]
         if result['n'] > 1:
             missing_pct_bogus = True
-        print "%(date)10s %(read_gibs)9.0f %(write_gibs)9.0f %(missing_pct).4f" % result
+        print_str = "%(date)10s"
+        for metric in metrics:
+            print_str += " %%(%s)12.2f" % metric
+        print print_str % result
 
     ### The logic to recalculate missing data percentages based on reduced data
     ### isn't included, so just throw a warning if reduction corrupted the
     ### meaning of this field
-    if missing_pct_bogus:
+    if not args.metadata and missing_pct_bogus:
         warnings.warn("Reduced one or more days' outputs; missing_pct is no longer a percent")
