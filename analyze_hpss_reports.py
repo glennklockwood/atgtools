@@ -57,6 +57,10 @@ def main():
         output = messages.get(userId='me', id=message_id).execute()
         message_body = base64.b64decode( output['payload']['body']['data'] )
 
+        with open("hpss_record_%s.txt" % str(message_id)) as fp:
+            print "Generating hpss_record_%s.txt %s" % message_id
+            fp.write(message_body)
+
         ### parse the body of each e-mail.  assume we only care about the first
         ### set of data ("Archive : IO Totals by HPSS Mover Host")
         for line in StringIO.StringIO( message_body ).readlines():

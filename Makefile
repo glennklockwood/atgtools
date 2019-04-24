@@ -1,4 +1,4 @@
-BINARIES=drop_file_from_page_cache is_file_in_page_cache mmap-test timer mmap-vs-posix mpiio-cp
+BINARIES=drop_file_from_page_cache is_file_in_page_cache mmap-test timer mmap-vs-posix mpiio-cp get_mdtidx mmap-test-opts
 
 all: $(BINARIES)
 
@@ -8,8 +8,14 @@ clean:
 mmap-test: mmap-test.c
 	$(CC) $(CFLAGS) -o $@ $< -lm
 
+mmap-test-opts: mmap-test-opts.c
+	$(CC) $(CFLAGS) -o $@ $< -lm
+
 timer: timer.c
 	$(CC) $(CFLAGS) -o $@ $< -lrt
 
 mpiio-cp: mpiio-cp.c
 	$(CC) $(CFLAGS) -o $@ $< -lrt
+
+get_mdtidx: get_mdtidx.c
+	$(CC) $(CFLAGS) -o $@ $< -L/usr/lib64 -llustreapi

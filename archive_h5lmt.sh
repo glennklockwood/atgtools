@@ -50,7 +50,7 @@ do
         echo "Found $file_ct files in $log_dir"
         failures=0
         shopt -s globstar
-        for i in $log_dir/*${FS_NAME}.h5lmt
+        for i in $log_dir/*${FS_NAME}.h5lmt $log_dir/${FS_NAME}.hdf5
         do
             ### will match on 2017-01-01/cori_snx11168.h5lmt
             date=$(dirname "$i" | cut -d "/" -f2)

@@ -2,8 +2,13 @@
 
 set -e
 
-# PREFIX_DIR=darshan-3.1.2-$(git log | grep -m 1 commit | sed -e 's/^commit \(.......\).*/\1/')
-PREFIX_DIR=darshan-3.1.4
+# If we're at a tag, just use it
+TAG_VERS=$(git tag -l --points-at HEAD | cut -d- -f2)
+if [ -z "$TAG_VERS" ]; then
+    PREFIX_DIR="darshan-3.1.2-$(git log | grep -m 1 commit | sed -e 's/^commit \(.......\).*/\1/')"
+else
+    PREFIX_DIR="darshan-$TAG_VERS"
+fi
 BZIP2_DIR=/global/u2/g/glock/apps.cori-haswell/bzip2-1.0.6
 ENABLE_SHARED=""
 # ENABLE_SHARED="--enable-shared"
@@ -43,7 +48,8 @@ function build_edison() {
     done
 
     INSTALL_PATH="$HOME/apps.edison"
-    DARSHAN_RUNTIME_CONFIG_FLAGS="--enable-HDF5-pre-1.10 $ENABLE_SHARED --with-log-path-by-env=DARSHAN_LOGPATH,SLURM_SUBMIT_DIR,PWD --disable-cuserid --with-mem-align=8 --with-jobid-env=SLURM_JOBID --enable-mmap-logs CC=cc"
+    # don't use --with-HDF5-*-1.10; it just causes too many problems
+    DARSHAN_RUNTIME_CONFIG_FLAGS="$ENABLE_SHARED --with-log-path-by-env=DARSHAN_LOGPATH,SLURM_SUBMIT_DIR,PWD --disable-cuserid --with-mem-align=8 --with-jobid-env=SLURM_JOBID --enable-mmap-logs CC=cc"
     DARSHAN_UTIL_CONFIG_FLAGS="--with-zlib --with-bzlib=$BZIP2_DIR $ENABLE_SHARED CC=cc"
     cd "$DARSHAN_HOME/darshan-runtime/build"
     make distclean || true
@@ -73,7 +79,8 @@ function build_cori() {
         mkdir -pv "$build_dir"
     done
 
-    DARSHAN_RUNTIME_CONFIG_FLAGS="--enable-HDF5-pre-1.10 $ENABLE_SHARED --with-log-path-by-env=DARSHAN_LOGPATH,SLURM_SUBMIT_DIR,PWD --disable-cuserid --with-mem-align=8 --with-jobid-env=SLURM_JOBID --enable-mmap-logs CC=cc"
+    # don't use --with-HDF5-*-1.10; it just causes too many problems
+    DARSHAN_RUNTIME_CONFIG_FLAGS="$ENABLE_SHARED --with-log-path-by-env=DARSHAN_LOGPATH,SLURM_SUBMIT_DIR,PWD --disable-cuserid --with-mem-align=8 --with-jobid-env=SLURM_JOBID --enable-mmap-logs CC=cc"
     DARSHAN_UTIL_CONFIG_FLAGS="--with-zlib $ENABLE_SHARED --with-bzlib=$BZIP2_DIR CC=cc"
 
     for INSTALL_PATH in "$HOME/apps.cori-haswell" "$HOME/apps.cori-knl"

@@ -1,13 +1,12 @@
 #!/usr/bin/env python
-"""
-Parses the stdout of one or more IOR invocations
+"""Parse the stdout of one or more IOR invocations
 """
 import sys
 import datetime
 import re
 import json
 
-def un_human_readable( value_str ):
+def un_human_readable(value_str):
     """
     Takes the output of IOR's HumanReadable() and converts it back to a byte
     value
@@ -40,14 +39,17 @@ def un_human_readable( value_str ):
         raise Exception("Unknown value_str " + value_str)
     return value * mult
 
-def parse( ior_output ):
+def parse(ior_output):
+    """Convert the output of IOR into 
+    
+    Process one or more ascii text files containing the stdout of IOR
+    Args:
+        ior_input (list): file names containing IOR's stdout messages
+
+    Returns:
+        dict: Keys and values describing the results of the IOR output(s)
     """
-    input: a list of file names containing IOR's stdout messages
-    output: tuple containing
-        1. list of h5lmt file names corresponding to input files
-        2. subset of input that was used to generate output #1
-    """
-    data = { }
+    data = {}
 
     section = None
     for line in ior_output:
@@ -109,7 +111,7 @@ def parse( ior_output ):
         elif section is None and line.strip() == "Summary of all tests:":
             section = 'run_summary'
             if 'run_summary' not in data:
-                data['run_summary'] = [ ]
+                data['run_summary'] = []
         elif section == 'run_summary' and line.strip() == "":
             section = None
         elif section == 'run_summary' and (line.startswith('read') or line.startswith('write')):
@@ -137,6 +139,15 @@ def parse( ior_output ):
                 'api': cols[19],
                 'ref_num': int(cols[20])
             })
+        elif section is None:
+            if line.startswith('Max Write:') or line.startswith('Max Read:'):
+                if 'run_summary' not in data:
+                    data['run_summary'] = []
+                cols = line.split()
+                data['run_summary'].append({
+                    'operation': cols[1].lower().rstrip(':'),
+                    'max_mibs': float(cols[2]),
+                })
             
     return data
 
