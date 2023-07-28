@@ -17,19 +17,21 @@ def main(argv=None):
     parser.add_argument('byte_unit', type=str, help='The unit of bytes to convert from')
     parser.add_argument('time_quantity', type=float, help='The quantity of time to convert')
     parser.add_argument('time_unit', type=str, help='The unit of time to convert from')
-    parser.add_argument('to_unit', type=str, help='The unit of bytes to convert to')
+    parser.add_argument('to_byte_unit', type=str, help='The unit of bytes to convert to')
+    parser.add_argument('to_time_unit', type=str, nargs='?', default="s", help='The unit of time to convert to (optional)')
+
     args = parser.parse_args()
 
     # convert provided byte quantity and units into to_unit
     converted_bytes = convert_cloud_storage_pricing.convert_bytes(
         args.byte_quantity,
         args.byte_unit,
-        args.to_unit)
+        args.to_byte_unit)
     converted_time = convert_cloud_storage_pricing.convert_time(
         args.time_quantity,
         args.time_unit,
-        "s")
-    print(f"{converted_bytes / converted_time} {args.to_unit}/s")
+        args.to_time_unit)
+    print(f"{converted_bytes / converted_time} {args.to_byte_unit}/{args.to_time_unit}")
 
 if __name__ == '__main__':
     main()
