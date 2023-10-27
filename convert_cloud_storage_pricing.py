@@ -150,7 +150,7 @@ def main(argv=None):
     converted_price = args.price / convert_bytes(1, from_capacity, to_capacity)
     converted_time = convert_time(1, from_time, to_time)
 
-    print("${0:.3f}/{1}/{2} is ${3:.3f}/{4}/{5}".format(
+    print("${0:.3f}/{1}/{2} is ${3:.5f}/{4}/{5}".format(
         args.price,
         from_capacity,
         from_time,
