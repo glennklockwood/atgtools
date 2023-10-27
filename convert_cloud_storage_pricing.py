@@ -90,6 +90,8 @@ def to_seconds(quantity, unit):
     # convert quantity to seconds
     if unit[0] == "s":
         pass
+    elif unit[0] == "u":
+        quantity = quantity / 1000000
     elif unit[0] == "m":
         if len(unit) > 1:
             if unit[:2] == "ms":
